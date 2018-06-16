@@ -48,8 +48,8 @@ const ReconnectingWebSocket = require('reconnecting-websocket')
 const WebSocket = require('ws')
 const options = {
   WebSocket: WebSocket, // custom WebSocket constructor
-  connectionTimeout: 1000,
-  maxRetries: 10,
+  debug: true, 
+  reconnectInterval: 3000,
 };
 
 const wsURL = 'ws://' + deconz_ip + ':' + deconz_port
