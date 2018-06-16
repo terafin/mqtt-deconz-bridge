@@ -43,20 +43,23 @@ var disconnectedEvent = function() {
 // Setup MQTT
 const client = mqtt.setupClient(connectedEvent, disconnectedEvent)
 
+var isConnected = false
+var isConnecting = false
 
 const ReconnectingWebSocket = require('reconnecting-websocket')
 const WebSocket = require('ws')
 const options = {
-  WebSocket: WebSocket, // custom WebSocket constructor
-  debug: true, 
-  reconnectInterval: 3000,
+  WebSocket: WebSocket,
+  debug: true,
 };
 
 const wsURL = 'ws://' + deconz_ip + ':' + deconz_port
 const rws = new ReconnectingWebSocket(wsURL, [], options);
 
 rws.addEventListener('open', () => {
-  logging.info('hello!')
+  logging.info('Connected to Deconz')
+  isConnecting = false
+  isConnected = true
 });
 
 rws.addEventListener('message', (message) => {
@@ -68,6 +71,33 @@ rws.addEventListener('message', (message) => {
   const json = JSON.parse(message.data)
 
   handleJSONEvent(json)
+})
+
+
+function tryReconnect() {
+  setTimeout(() => {
+    if ( isConnecting || isConnected )
+      return
+
+    rws.reconnect()
+  }, 10000)
+
+}
+
+rws.addEventListener('error', (message) => {
+  isConnecting = false
+  isConnected = false
+
+  logging.info('Connection error')
+  tryReconnect()
+})
+
+rws.addEventListener('close', (message) => {
+  isConnecting = false
+  isConnected = false
+
+  logging.info('Connection closed')
+  tryReconnect()
 })
 
 
