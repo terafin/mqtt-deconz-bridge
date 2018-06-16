@@ -49,8 +49,7 @@ var isConnecting = false
 const ReconnectingWebSocket = require('reconnecting-websocket')
 const WebSocket = require('ws')
 const options = {
-  WebSocket: WebSocket,
-  debug: true,
+  WebSocket: WebSocket
 };
 
 const wsURL = 'ws://' + deconz_ip + ':' + deconz_port
@@ -80,8 +79,7 @@ function tryReconnect() {
       return
 
     rws.reconnect()
-  }, 10000)
-
+  }, 30000)
 }
 
 rws.addEventListener('error', (message) => {
