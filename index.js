@@ -25,7 +25,7 @@ var mqttOptions = {}
 var shouldRetain = process.env.MQTT_RETAIN
 
 if (_.isNil(shouldRetain)) {
-    shouldRetain = false
+    shouldRetain = true
 }
 
 if (!_.isNil(shouldRetain)) {
@@ -119,6 +119,12 @@ function sensorTypeFromJSON(json) {
   if ( !_.isNil(json.state.humidity) || !_.isNil(json.state.temperature) || !_.isNil(json.state.pressure))
     return 'climate'
 
+  if ( !_.isNil(json.state.lux) )
+    return 'motion'
+
+  if ( !_.isNil(json.state.presence) )
+    return 'motion'
+
   if ( !_.isNil(json.state.open) )
     return 'contact'
 
@@ -131,9 +137,14 @@ function handleChangeEvent(json) {
     return
   }
 
+  logging.info('event: ' + JSON.stringify(json))
+
   switch (sensorTypeFromJSON(json)) {
     case 'config':
       handleConfigEvent(json)
+      break;
+    case 'motion':
+      handleMotionEvent(json)
       break;
     case 'climate':
       handleClimateEvent(json)
@@ -164,6 +175,31 @@ function handleClimateEvent(json) {
   }
 }
 
+function handleMotionEvent(json) {
+  if (_.isNil(json)) {
+    logging.error('Empty motion event')
+    return
+  }
+
+  logging.info('Motion: ' + JSON.stringify(json))
+
+  if (!_.isNil(json.state.lux)) {
+    client.publish(topic_prefix + '/lux/' + json.id, parseResult('lux', json.state.lux), mqttOptions)
+  }
+  if (!_.isNil(json.state.dark)) {
+    client.publish(topic_prefix + '/dark/' + json.id, parseResult('dark', json.state.dark), mqttOptions)
+  }
+  if (!_.isNil(json.state.daylight)) {
+    client.publish(topic_prefix + '/daylight/' + json.id, parseResult('daylight', json.state.daylight), mqttOptions)
+  }
+  if (!_.isNil(json.state.lightlevel)) {
+    client.publish(topic_prefix + '/lightlevel/' + json.id, parseResult('lightlevel', json.state.lightlevel), mqttOptions)
+  }
+  if (!_.isNil(json.state.presence)) {
+    client.publish(topic_prefix + '/presence/' + json.id, parseResult('presence', json.state.presence), mqttOptions)
+  }
+}
+
 function handleContactEvent(json) {
   if (_.isNil(json)) {
     logging.error('Empty contact event')
@@ -178,6 +214,8 @@ function handleContactEvent(json) {
 }
 
 function parseResult(key, value) {
+  if ( _.isNil(value) )
+    return "0"
   if ( value == true )
     return "1"
   if ( value == false )
