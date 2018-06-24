@@ -346,9 +346,10 @@ client.on('message', (topic, message) => {
       logging.info(' set light id: ' + id + '   action: ' + action + '   to: ' + message)
 
       if ( action.includes('brightness')) {
-        putURL('lights/' + id + '/state', {bri: Number(message)}, simpleResponseLog)
+        const brightness = Number(message)
+        putURL('lights/' + id + '/state', {bri: brightness, on: (brightness > 0 ? true : false)}, simpleResponseLog)
       } else if ( action.includes('state')) {
-        putURL('lights/' + id + '/state', {on: Number(message) > 0 ? true : false}, simpleResponseLog)
+        putURL('lights/' + id + '/state', {on: brightness > 0 ? true : false}, simpleResponseLog)
       }
   }
 })
