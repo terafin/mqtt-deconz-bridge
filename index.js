@@ -238,7 +238,7 @@ function handleClimateEvent(json) {
 }
 
 function handleMotionEvent(json) {
-  if (_.isNil(json)) {
+  if (_.isNil(json) || _.isNil(json.state)) {
     logging.error('Empty motion event')
     return
   }
