@@ -5,13 +5,63 @@ const repeat = require('repeat')
 const bodyParser = require('body-parser')
 const health = require('homeautomation-js-lib/health.js')
 const request = require('request')
+const Configstore = require('configstore');
+
+const conf = new Configstore("deconz-key", {});
 
 require('homeautomation-js-lib/mqtt_helpers.js')
 
 var deconz_ip = process.env.DECONZ_IP
 var deconz_port = process.env.DECONZ_PORT
-var deconz_key = process.env.DECONZ_API_KEY
+var deconz_key = conf.get('api-key')
 
+
+function apiURL(suffixURL) {
+  if ( _.isNil(suffixURL ) ) return ""
+  if ( _.isNil(deconz_key ) ) return ""
+  
+  return 'http://' + deconz_ip + '/api/' + deconz_key + '/' + suffixURL
+}
+
+function getURL(inURL, response) {
+  const url = apiURL(inURL)
+
+  request.get(url, {json:true}, response)
+}
+
+function putURL(inURL, bodyJSON, response) {
+  const url = apiURL(inURL)
+
+  request.put(url, {body:bodyJSON, json:true}, response)
+}
+
+const simpleResponseLog = function(err,httpResponse,body){ 
+  logging.info('reponse error: ' + err)
+  logging.info('httpResponse error: ' + JSON.stringify(httpResponse))
+  logging.info('reponse body: ' + JSON.stringify(body))
+  }
+
+getURL('lights', simpleResponseLog)
+
+if ( _.isNil(deconz_key) ) {
+  logging.info('No saved API Key - Loading API Key')
+  request.post('http://' + deconz_ip + '/api', {body:{devicetype:'mqtt-bridge'}, json:true},
+      function(err,httpResponse,body){ 
+        logging.info('reponse body: ' + JSON.stringify(body))
+        const bodyPart = body[0]
+        if ( !_.isNil(bodyPart) && !_.isNil(bodyPart.success) && !_.isNil(bodyPart.success.username) ) {
+          const api_key = bodyPart.success.username
+          conf.set('api-key', api_key)
+          deconz_key = api_key
+          logging.info('Saved API Key: ' + api_key)
+        } else {
+          logging.error('could not get API key: ' + JSON.stringify(body))
+        }
+      }
+  )
+}
+
+logging.info('Using API Key: ' + deconz_key)
   // Config
 var topic_prefix = process.env.TOPIC_PREFIX
 
@@ -33,7 +83,8 @@ if (!_.isNil(shouldRetain)) {
 }
 
 var connectedEvent = function() {
-    health.healthyEvent()
+  client.subscribe(topic_prefix + '/light/+/+/set')
+  health.healthyEvent()
 }
 
 var disconnectedEvent = function() {
@@ -113,6 +164,14 @@ function handleJSONEvent(json) {
 }
 
 function sensorTypeFromJSON(json) {
+  if ( !_.isNil(json.r) ) {
+    switch (json.r) {
+      case 'lights':
+        return 'light'
+    }
+  }
+    return 'motion'
+
   if ( !_.isNil(json.config) )
     return 'config'
 
@@ -140,6 +199,9 @@ function handleChangeEvent(json) {
   logging.info('event: ' + JSON.stringify(json))
 
   switch (sensorTypeFromJSON(json)) {
+    case 'light':
+      handleLightEvent(json)
+      break;
     case 'config':
       handleConfigEvent(json)
       break;
@@ -251,3 +313,42 @@ function handleConfigEvent(json) {
   }
 
 }
+
+function handleLightEvent(json) {
+  if (_.isNil(json)) {
+    logging.error('Empty light event')
+    return
+  }
+  
+  logging.info('Config: ' + JSON.stringify(json))
+
+  if (!_.isNil(json.state.bri)) {
+    client.publish(topic_prefix + '/light/brightness/' + json.id, parseResult('light', json.state.bri), mqttOptions)
+    client.publish(topic_prefix + '/light/state/' + json.id, parseResult('light', json.state.bri > 0 ? 1 : 0 ), mqttOptions)
+  }
+
+  if (!_.isNil(json.state.reachable)) {
+    client.publish(topic_prefix + '/light/reachable/' + json.id, parseResult('on', json.state.reachable ), mqttOptions)
+  }
+
+  if (!_.isNil(json.state.on)) {
+    client.publish(topic_prefix + '/light/state/' + json.id, parseResult('on', json.state.on ), mqttOptions)
+  }
+}
+
+
+client.on('message', (topic, message) => {
+  logging.info(' ' + topic + ':' + message)
+  if ( topic.toString().includes('light')) {
+      const components = topic.split('/')
+      const id = components[components.length - 2]
+      const action = components[components.length - 3]
+      logging.info(' set light id: ' + id + '   action: ' + action + '   to: ' + message)
+
+      if ( action.includes('brightness')) {
+        putURL('lights/' + id + '/state', {bri: Number(message)}, simpleResponseLog)
+      } else if ( action.includes('state')) {
+        putURL('lights/' + id + '/state', {on: Number(message) > 0 ? true : false}, simpleResponseLog)
+      }
+  }
+})
