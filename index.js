@@ -170,7 +170,6 @@ function sensorTypeFromJSON(json) {
         return 'light'
     }
   }
-    return 'motion'
 
   if ( !_.isNil(json.config) )
     return 'config'
