@@ -158,119 +158,8 @@ function handleJSONEvent(json) {
 
   switch (json.e) {
     case 'changed':
-      handleChangeEvent(json)
+      handleUpdateEvent(json)
       break;
-  }
-}
-
-function sensorTypeFromJSON(json) {
-  if ( !_.isNil(json.r) ) {
-    switch (json.r) {
-      case 'lights':
-        return 'light'
-    }
-  }
-
-  if ( !_.isNil(json.config) )
-    return 'config'
-
-  if ( !_.isNil(json.state.humidity) || !_.isNil(json.state.temperature) || !_.isNil(json.state.pressure))
-    return 'climate'
-
-  if ( !_.isNil(json.state.lux) )
-    return 'motion'
-
-  if ( !_.isNil(json.state.presence) )
-    return 'motion'
-
-  if ( !_.isNil(json.state.open) )
-    return 'contact'
-
-  return null  
-}
-
-function handleChangeEvent(json) {
-  if (_.isNil(json)) {
-    logging.error('Empty change event')
-    return
-  }
-
-  logging.info('event: ' + JSON.stringify(json))
-
-  switch (sensorTypeFromJSON(json)) {
-    case 'light':
-      handleLightEvent(json)
-      break;
-    case 'config':
-      handleConfigEvent(json)
-      break;
-    case 'motion':
-      handleMotionEvent(json)
-      break;
-    case 'climate':
-      handleClimateEvent(json)
-      break;
-    case 'contact':
-      handleContactEvent(json)
-      break;
-  }
-
-}
-
-function handleClimateEvent(json) {
-  if (_.isNil(json)) {
-    logging.error('Empty climate event')
-    return
-  }
-
-  logging.info('Climate: ' + JSON.stringify(json))
-
-  if (!_.isNil(json.state.temperature)) {
-    client.publish(topic_prefix + '/climate/temperature/' + json.id, parseResult('temperature', json.state.temperature), mqttOptions)
-  }
-  if (!_.isNil(json.state.humidity)) {
-    client.publish(topic_prefix + '/climate/humidity/' + json.id, parseResult('humidity', json.state.humidity), mqttOptions)
-  }
-  if (!_.isNil(json.state.pressure)) {
-    client.publish(topic_prefix + '/climate/pressure/' + json.id, parseResult('pressure', json.state.pressure), mqttOptions)
-  }
-}
-
-function handleMotionEvent(json) {
-  if (_.isNil(json) || _.isNil(json.state)) {
-    logging.error('Empty motion event')
-    return
-  }
-
-  logging.info('Motion: ' + JSON.stringify(json))
-
-  if (!_.isNil(json.state.lux)) {
-    client.publish(topic_prefix + '/lux/' + json.id, parseResult('lux', json.state.lux), mqttOptions)
-  }
-  if (!_.isNil(json.state.dark)) {
-    client.publish(topic_prefix + '/dark/' + json.id, parseResult('dark', json.state.dark), mqttOptions)
-  }
-  if (!_.isNil(json.state.daylight)) {
-    client.publish(topic_prefix + '/daylight/' + json.id, parseResult('daylight', json.state.daylight), mqttOptions)
-  }
-  if (!_.isNil(json.state.lightlevel)) {
-    client.publish(topic_prefix + '/lightlevel/' + json.id, parseResult('lightlevel', json.state.lightlevel), mqttOptions)
-  }
-  if (!_.isNil(json.state.presence)) {
-    client.publish(topic_prefix + '/presence/' + json.id, parseResult('presence', json.state.presence), mqttOptions)
-  }
-}
-
-function handleContactEvent(json) {
-  if (_.isNil(json)) {
-    logging.error('Empty contact event')
-    return
-  }
-
-  logging.info('Contact: ' + JSON.stringify(json))
-
-  if (!_.isNil(json.state.open)) {
-    client.publish(topic_prefix + '/contact/' + json.id, parseResult('contact', json.state.open), mqttOptions)
   }
 }
 
@@ -292,50 +181,6 @@ function parseResult(key, value) {
   return value.toString()
 }
 
-function handleConfigEvent(json) {
-  if (_.isNil(json) || _.isNil(json.config)) {
-    logging.error('Empty config event')
-    return
-  }
-  
-  logging.info('Config: ' + JSON.stringify(json))
-
-  if (!_.isNil(json.config.battery)) {
-    client.publish(topic_prefix + '/battery/' + json.id, parseResult('battery', json.config.battery), mqttOptions)
-  }
-  if (!_.isNil(json.config.reachable)) {
-    client.publish(topic_prefix + '/reachable/' + json.id, parseResult('reachable', json.config.reachable), mqttOptions)
-  }
-
-  if (!_.isNil(json.config.temperature)) {
-    client.publish(topic_prefix + '/temperature/' + json.id, parseResult('temperature', json.config.temperature), mqttOptions)
-  }
-
-}
-
-function handleLightEvent(json) {
-  if (_.isNil(json)) {
-    logging.error('Empty light event')
-    return
-  }
-  
-  logging.info('Config: ' + JSON.stringify(json))
-
-  if (!_.isNil(json.state.bri)) {
-    client.publish(topic_prefix + '/light/brightness/' + json.id, parseResult('light', json.state.bri), mqttOptions)
-    client.publish(topic_prefix + '/light/state/' + json.id, parseResult('light', json.state.bri > 0 ? 1 : 0 ), mqttOptions)
-  }
-
-  if (!_.isNil(json.state.reachable)) {
-    client.publish(topic_prefix + '/light/reachable/' + json.id, parseResult('on', json.state.reachable ), mqttOptions)
-  }
-
-  if (!_.isNil(json.state.on)) {
-    client.publish(topic_prefix + '/light/state/' + json.id, parseResult('on', json.state.on ), mqttOptions)
-  }
-}
-
-
 client.on('message', (topic, message) => {
   logging.info(' ' + topic + ':' + message)
   if ( topic.toString().includes('light')) {
@@ -352,3 +197,117 @@ client.on('message', (topic, message) => {
       }
   }
 })
+
+function handleUpdateEvent(json) {
+  if (_.isNil(json) ) {
+    logging.error('Empty config event')
+    return
+  }
+  
+  const deviceType = json.r
+
+  if ( _.isNil(deviceType)) {
+    logging.error('Empty device type from JSON: ' + JSON.stringify(json))
+    return
+  }
+  const topicPrefix = topic_prefix + '/' + deviceType + '/' + json.id + '/'
+
+  if ( !_.isNil(json.state)) {
+
+    // Climate
+    if (!_.isNil(json.state.temperature)) {
+      client.publish(topicPrefix + 'temperature', parseResult('temperature', json.state.temperature), mqttOptions)
+    }
+    if (!_.isNil(json.state.humidity)) {
+      client.publish(topicPrefix + 'humidity', parseResult('humidity', json.state.humidity), mqttOptions)
+    }
+    if (!_.isNil(json.state.pressure)) {
+      client.publish(topicPrefix + 'pressure', parseResult('pressure', json.state.pressure), mqttOptions)
+    }
+
+    // Motion/Light
+    if (!_.isNil(json.state.lux)) {
+      client.publish(topicPrefix + 'lux', parseResult('lux', json.state.lux), mqttOptions)
+    }
+    if (!_.isNil(json.state.dark)) {
+      client.publish(topicPrefix + 'dark', parseResult('dark', json.state.dark), mqttOptions)
+    }
+    if (!_.isNil(json.state.daylight)) {
+      client.publish(topicPrefix + 'daylight', parseResult('daylight', json.state.daylight), mqttOptions)
+    }
+    if (!_.isNil(json.state.lightlevel)) {
+      client.publish(topicPrefix + 'lightlevel', parseResult('lightlevel', json.state.lightlevel), mqttOptions)
+    }
+    if (!_.isNil(json.state.presence)) {
+      client.publish(topicPrefix + 'presence', parseResult('presence', json.state.presence), mqttOptions)
+    }
+  
+    // Lights/Switches
+    if (!_.isNil(json.state.bri)) {
+      client.publish(topicPrefix + 'brightness', parseResult('light', json.state.bri), mqttOptions)
+      client.publish(topicPrefix + 'state', parseResult('light', json.state.bri > 0 ? 1 : 0 ), mqttOptions)
+    }
+    if (!_.isNil(json.state.on)) {
+      client.publish(topicPrefix + 'state', parseResult('on', json.state.on ), mqttOptions)
+    }
+
+    if (!_.isNil(json.state.effect)) {
+      client.publish(topicPrefix + 'effect', parseResult('effect', json.state.effect ), mqttOptions)
+    }
+
+    if (!_.isNil(json.state.effect)) {
+      client.publish(topicPrefix + 'effect', parseResult('effect', json.state.effect ), mqttOptions)
+    }
+
+    if (!_.isNil(json.state.sat)) {
+      client.publish(topicPrefix + 'sat', parseResult('sat', json.state.sat ), mqttOptions)
+    }
+
+    if (!_.isNil(json.state.xy)) {
+      client.publish(topicPrefix + 'xy', parseResult('xy', json.state.xy ), mqttOptions)
+    }
+
+    if (!_.isNil(json.state.hue)) {
+      client.publish(topicPrefix + 'hue', parseResult('hue', json.state.hue ), mqttOptions)
+    }
+
+    if (!_.isNil(json.state.alert)) {
+      client.publish(topicPrefix + 'alert', parseResult('alert', json.state.alert ), mqttOptions)
+    }
+
+    if (!_.isNil(json.state.ct)) {
+      client.publish(topicPrefix + 'ct', parseResult('ct', json.state.ct ), mqttOptions)
+    }
+
+    // Contact
+    if (!_.isNil(json.state.open)) {
+      client.publish(topicPrefix + 'contact', parseResult('contact', json.state.open), mqttOptions)
+    }
+
+    // Contact
+    if (!_.isNil(json.state.lastupdated)) {
+      client.publish(topicPrefix + 'lastupdated', parseResult('date', json.state.lastupdated), mqttOptions)
+    }
+  }
+
+  if ( !_.isNil(json.config)) {
+    logging.info('Config: ' + JSON.stringify(json))
+
+    // Battery / Reachable
+    if (!_.isNil(json.config.battery)) {
+      client.publish(topicPrefix + 'battery', parseResult('battery', json.config.battery), mqttOptions)
+    }
+    if (!_.isNil(json.config.reachable)) {
+      client.publish(topicPrefix + 'reachable', parseResult('reachable', json.config.reachable), mqttOptions)
+    }
+
+    if (!_.isNil(json.config.on)) {
+      client.publish(topicPrefix + 'state', parseResult('on', json.state.on ), mqttOptions)
+    }
+
+    // Climate
+    if (!_.isNil(json.config.temperature)) {
+      client.publish(topicPrefix + 'temperature', parseResult('temperature', json.config.temperature), mqttOptions)
+    }
+  }
+}
