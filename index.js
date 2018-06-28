@@ -41,7 +41,29 @@ const simpleResponseLog = function(err,httpResponse,body){
   logging.info('reponse body: ' + JSON.stringify(body))
   }
 
-getURL('lights', simpleResponseLog)
+const queryState = function() {
+  if ( _.isNil(deconz_key) )
+    return
+  
+  logging.info('querying initial state from deconz')
+
+  getURL('lights', function(err,httpResponse,body){ 
+    Object.keys(body).forEach(deviceID => {
+      var deviceJSON = body[deviceID]
+      deviceJSON.id = deviceID
+      deviceJSON.r = 'lights'
+      handleUpdateEvent(body[deviceID])
+    });
+  })
+  getURL('sensors', function(err,httpResponse,body){ 
+    Object.keys(body).forEach(deviceID => {
+      var deviceJSON = body[deviceID]
+      deviceJSON.id = deviceID
+      deviceJSON.r = 'sensor'
+      handleUpdateEvent(body[deviceID])
+    });
+  })
+}
 
 if ( _.isNil(deconz_key) ) {
   logging.info('No saved API Key - Loading API Key')
@@ -85,6 +107,7 @@ if (!_.isNil(shouldRetain)) {
 var connectedEvent = function() {
   client.subscribe(topic_prefix + '/light/+/+/set')
   health.healthyEvent()
+  queryState()
 }
 
 var disconnectedEvent = function() {
@@ -110,6 +133,7 @@ rws.addEventListener('open', () => {
   logging.info('Connected to Deconz')
   isConnecting = false
   isConnected = true
+  queryState()
 });
 
 rws.addEventListener('message', (message) => {
