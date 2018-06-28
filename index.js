@@ -185,8 +185,8 @@ client.on('message', (topic, message) => {
   logging.info(' ' + topic + ':' + message)
   if ( topic.toString().includes('light')) {
       const components = topic.split('/')
-      const id = components[components.length - 2]
-      const action = components[components.length - 3]
+      const id = components[components.length - 3]
+      const action = components[components.length - 2]
       logging.info(' set light id: ' + id + '   action: ' + action + '   to: ' + message)
 
       if ( action.includes('brightness')) {
