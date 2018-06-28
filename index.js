@@ -302,7 +302,7 @@ function handleUpdateEvent(json) {
     }
 
     if (!_.isNil(json.config.on)) {
-      client.publish(topicPrefix + 'state', parseResult('on', json.state.on ), mqttOptions)
+      client.publish(topicPrefix + 'state', parseResult('on', json.config.on ), mqttOptions)
     }
 
     // Climate
