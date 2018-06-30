@@ -59,7 +59,7 @@ const queryState = function() {
     Object.keys(body).forEach(deviceID => {
       var deviceJSON = body[deviceID]
       deviceJSON.id = deviceID
-      deviceJSON.r = 'sensor'
+      deviceJSON.r = 'sensors'
       handleUpdateEvent(body[deviceID])
     });
   })
