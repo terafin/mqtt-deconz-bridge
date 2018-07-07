@@ -59,14 +59,14 @@ const sensorNameForID = function(id) {
     const sensorData = lastSensorState[id]
 
     if ( !_.isNil(sensorData) )
-      return sensorData.name
+      return fix_name(sensorData.name)
   }
 
   return id
 }
 
-const idForLightName = function(name) {
-  if ( !_.isNil(name) ) {
+const lightNameForID = function(id) {
+  if ( !_.isNil(id) ) {
     const lightData = lastLightState[id]
 
     if ( !_.isNil(lightData) )
@@ -76,11 +76,12 @@ const idForLightName = function(name) {
   return null
 }
 
-const lightNameForID = function(id) {
+const idForLightName = function(name) {
   if ( !_.isNil(lastLightState) ) {
     Object.keys(lastLightState).forEach(deviceID => {
-      if ( deviceID === id ) 
-        return lastLightState[deviceID].name
+        if ( lastLightState[deviceID].name === name ) {
+          return deviceID
+        }
       })
     }
 
