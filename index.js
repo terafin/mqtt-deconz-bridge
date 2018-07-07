@@ -15,6 +15,14 @@ var deconz_ip = process.env.DECONZ_IP
 var deconz_port = process.env.DECONZ_PORT
 var deconz_key = conf.get('api-key')
 
+function fix_name(str) {
+  str = str.replace(/[+\\\&\*\%\$\#\@\!]/g, '')
+  str = str.replace(/\s/g, '_').trim().toLowerCase()
+  str = str.replace(/__/g, '_')
+  str = str.replace(/-/g, '_')
+
+  return str
+}
 
 function apiURL(suffixURL) {
   if ( _.isNil(suffixURL ) ) return ""
@@ -41,27 +49,74 @@ const simpleResponseLog = function(err,httpResponse,body){
   logging.info('reponse body: ' + JSON.stringify(body))
   }
 
+
+var lastLightState = null
+var lastSensorState = null
+
+
+const sensorNameForID = function(id) {
+  if ( !_.isNil(lastSensorState) ) {
+    const sensorData = lastSensorState[id]
+
+    if ( !_.isNil(sensorData) )
+      return sensorData.name
+  }
+
+  return id
+}
+
+const idForLightName = function(name) {
+  if ( !_.isNil(name) ) {
+    const lightData = lastLightState[id]
+
+    if ( !_.isNil(lightData) )
+      return fix_name(lightData.name)
+  }
+
+  return null
+}
+
+const lightNameForID = function(id) {
+  if ( !_.isNil(lastLightState) ) {
+    Object.keys(lastLightState).forEach(deviceID => {
+      if ( deviceID === id ) 
+        return lastLightState[deviceID].name
+      })
+    }
+
+  return null
+}
+
 const queryState = function() {
   if ( _.isNil(deconz_key) )
     return
   
-  logging.info('querying initial state from deconz')
+  logging.info('querying state from deconz')
 
   getURL('lights', function(err,httpResponse,body){ 
-    Object.keys(body).forEach(deviceID => {
-      var deviceJSON = body[deviceID]
-      deviceJSON.id = deviceID
-      deviceJSON.r = 'lights'
-      handleUpdateEvent(body[deviceID])
-    });
+    if ( !_.isNil(body) ) {
+      lastLightState = body
+      logging.info('lastLightState: ' + JSON.stringify(lastLightState))
+
+      Object.keys(lastLightState).forEach(deviceID => {
+          var deviceJSON = lastLightState[deviceID]
+          deviceJSON.id = deviceID
+          deviceJSON.r = 'lights'
+          handleUpdateEvent(lastLightState[deviceID])
+        });
+      }
   })
   getURL('sensors', function(err,httpResponse,body){ 
-    Object.keys(body).forEach(deviceID => {
-      var deviceJSON = body[deviceID]
-      deviceJSON.id = deviceID
-      deviceJSON.r = 'sensors'
-      handleUpdateEvent(body[deviceID])
-    });
+    if ( !_.isNil(body) ) {
+      lastSensorState = body
+      logging.info('lastSensorState: ' + JSON.stringify(lastSensorState))
+      Object.keys(lastSensorState).forEach(deviceID => {
+        var deviceJSON = lastSensorState[deviceID]
+        deviceJSON.id = deviceID
+        deviceJSON.r = 'sensors'
+        handleUpdateEvent(lastSensorState[deviceID])
+      });
+    }
   })
 }
 
@@ -109,6 +164,8 @@ var connectedEvent = function() {
   health.healthyEvent()
   queryState()
 }
+
+repeat(queryState).every(15, 's').start.in(10, 'sec')
 
 var disconnectedEvent = function() {
     health.unhealthyEvent()
@@ -209,10 +266,19 @@ client.on('message', (topic, message) => {
   logging.info(' ' + topic + ':' + message)
   if ( topic.toString().includes('light')) {
       const components = topic.split('/')
-      const id = components[components.length - 3]
+      var id = components[components.length - 3]
       const action = components[components.length - 2]
       logging.info(' set light id: ' + id + '   action: ' + action + '   to: ' + message)
 
+      if ( isNaN(id) ) {
+        const discoveredID = idForLightName(id)
+        if ( !_.isNil(discoveredID) ) {
+          id = discoveredID
+        } else {
+          logging.error('  bad light id: ' + id)
+          return
+        }
+      }
       if ( action.includes('brightness')) {
         const brightness = Number(message)
         putURL('lights/' + id + '/state', {bri: brightness, on: (brightness > 0 ? true : false)}, simpleResponseLog)
@@ -224,7 +290,7 @@ client.on('message', (topic, message) => {
 
 function handleUpdateEvent(json) {
   if (_.isNil(json) ) {
-    logging.error('Empty config event')
+    logging.error('Empty update event')
     return
   }
   
@@ -234,83 +300,99 @@ function handleUpdateEvent(json) {
     logging.error('Empty device type from JSON: ' + JSON.stringify(json))
     return
   }
-  const topicPrefix = topic_prefix + '/' + deviceType + '/' + json.id + '/'
+  
+  var deviceName = null
+
+  switch (deviceType) {
+    case 'lights':
+      deviceName = lightNameForID(json.id)
+      break
+    case 'sensors':
+      deviceName = sensorNameForID(json.id)
+      break
+  }
+
+  if ( _.isNil(deviceName) ) {
+    deviceName = json.id
+  }
+  
+  const topicPrefix = topic_prefix + '/' + deviceType + '/' + deviceName + '/'
 
   if ( !_.isNil(json.state)) {
 
     // Climate
     if (!_.isNil(json.state.temperature)) {
-      client.publish(topicPrefix + 'temperature', parseResult('temperature', json.state.temperature), mqttOptions)
+      client.smartPublish(topicPrefix + 'temperature', parseResult('temperature', json.state.temperature), mqttOptions)
     }
     if (!_.isNil(json.state.humidity)) {
-      client.publish(topicPrefix + 'humidity', parseResult('humidity', json.state.humidity), mqttOptions)
+      client.smartPublish(topicPrefix + 'humidity', parseResult('humidity', json.state.humidity), mqttOptions)
     }
     if (!_.isNil(json.state.pressure)) {
-      client.publish(topicPrefix + 'pressure', parseResult('pressure', json.state.pressure), mqttOptions)
+      client.smartPublish(topicPrefix + 'pressure', parseResult('pressure', json.state.pressure), mqttOptions)
     }
 
     // Motion/Light
     if (!_.isNil(json.state.lux)) {
-      client.publish(topicPrefix + 'lux', parseResult('lux', json.state.lux), mqttOptions)
+      client.smartPublish(topicPrefix + 'lux', parseResult('lux', json.state.lux), mqttOptions)
     }
     if (!_.isNil(json.state.dark)) {
-      client.publish(topicPrefix + 'dark', parseResult('dark', json.state.dark), mqttOptions)
+      client.smartPublish(topicPrefix + 'dark', parseResult('dark', json.state.dark), mqttOptions)
     }
     if (!_.isNil(json.state.daylight)) {
-      client.publish(topicPrefix + 'daylight', parseResult('daylight', json.state.daylight), mqttOptions)
+      client.smartPublish(topicPrefix + 'daylight', parseResult('daylight', json.state.daylight), mqttOptions)
     }
     if (!_.isNil(json.state.lightlevel)) {
-      client.publish(topicPrefix + 'lightlevel', parseResult('lightlevel', json.state.lightlevel), mqttOptions)
+      client.smartPublish(topicPrefix + 'lightlevel', parseResult('lightlevel', json.state.lightlevel), mqttOptions)
     }
     if (!_.isNil(json.state.presence)) {
-      client.publish(topicPrefix + 'presence', parseResult('presence', json.state.presence), mqttOptions)
+      client.smartPublish(topicPrefix + 'presence', parseResult('presence', json.state.presence), mqttOptions)
     }
   
     // Lights/Switches
     if (!_.isNil(json.state.bri)) {
-      client.publish(topicPrefix + 'brightness', parseResult('light', json.state.bri), mqttOptions)
-      client.publish(topicPrefix + 'state', parseResult('light', json.state.bri > 0 ? 1 : 0 ), mqttOptions)
+      client.smartPublish(topicPrefix + 'brightness', parseResult('light', json.state.bri), mqttOptions)
+      client.smartPublish(topicPrefix + 'state', parseResult('light', json.state.bri > 0 ? 1 : 0 ), mqttOptions)
     }
     if (!_.isNil(json.state.on)) {
-      client.publish(topicPrefix + 'state', parseResult('on', json.state.on ), mqttOptions)
+      client.smartPublish(topicPrefix + 'state', parseResult('on', json.state.on ), mqttOptions)
     }
 
     if (!_.isNil(json.state.effect)) {
-      client.publish(topicPrefix + 'effect', parseResult('effect', json.state.effect ), mqttOptions)
+      client.smartPublish(topicPrefix + 'effect', parseResult('effect', json.state.effect ), mqttOptions)
     }
 
     if (!_.isNil(json.state.effect)) {
-      client.publish(topicPrefix + 'effect', parseResult('effect', json.state.effect ), mqttOptions)
+      client.smartPublish(topicPrefix + 'effect', parseResult('effect', json.state.effect ), mqttOptions)
     }
 
     if (!_.isNil(json.state.sat)) {
-      client.publish(topicPrefix + 'sat', parseResult('sat', json.state.sat ), mqttOptions)
+      client.smartPublish(topicPrefix + 'sat', parseResult('sat', json.state.sat ), mqttOptions)
     }
 
     if (!_.isNil(json.state.xy)) {
-      client.publish(topicPrefix + 'xy', parseResult('xy', json.state.xy ), mqttOptions)
+      client.smartPublish(topicPrefix + 'xy', parseResult('xy', json.state.xy ), mqttOptions)
     }
 
     if (!_.isNil(json.state.hue)) {
-      client.publish(topicPrefix + 'hue', parseResult('hue', json.state.hue ), mqttOptions)
+      client.smartPublish(topicPrefix + 'hue', parseResult('hue', json.state.hue ), mqttOptions)
     }
 
     if (!_.isNil(json.state.alert)) {
-      client.publish(topicPrefix + 'alert', parseResult('alert', json.state.alert ), mqttOptions)
+      client.smartPublish(topicPrefix + 'alert', parseResult('alert', json.state.alert ), mqttOptions)
     }
 
     if (!_.isNil(json.state.ct)) {
-      client.publish(topicPrefix + 'ct', parseResult('ct', json.state.ct ), mqttOptions)
+      client.smartPublish(topicPrefix + 'ct', parseResult('ct', json.state.ct ), mqttOptions)
     }
 
     // Contact
     if (!_.isNil(json.state.open)) {
-      client.publish(topicPrefix + 'contact', parseResult('contact', json.state.open), mqttOptions)
+      client.smartPublish(topicPrefix + 'contact', parseResult('contact', json.state.open), mqttOptions)
     }
 
     // Contact
     if (!_.isNil(json.state.lastupdated)) {
-      client.publish(topicPrefix + 'lastupdated', parseResult('date', json.state.lastupdated), mqttOptions)
+      client.smartPublish(topicPrefix + 'lastupdated', parseResult('date', json.state.lastupdated), mqttOptions)
     }
   }
 
@@ -319,19 +401,19 @@ function handleUpdateEvent(json) {
 
     // Battery / Reachable
     if (!_.isNil(json.config.battery)) {
-      client.publish(topicPrefix + 'battery', parseResult('battery', json.config.battery), mqttOptions)
+      client.smartPublish(topicPrefix + 'battery', parseResult('battery', json.config.battery), mqttOptions)
     }
     if (!_.isNil(json.config.reachable)) {
-      client.publish(topicPrefix + 'reachable', parseResult('reachable', json.config.reachable), mqttOptions)
+      client.smartPublish(topicPrefix + 'reachable', parseResult('reachable', json.config.reachable), mqttOptions)
     }
 
     if (!_.isNil(json.config.on)) {
-      client.publish(topicPrefix + 'state', parseResult('on', json.config.on ), mqttOptions)
+      client.smartPublish(topicPrefix + 'state', parseResult('on', json.config.on ), mqttOptions)
     }
 
     // Climate
     if (!_.isNil(json.config.temperature)) {
-      client.publish(topicPrefix + 'temperature', parseResult('temperature', json.config.temperature), mqttOptions)
+      client.smartPublish(topicPrefix + 'temperature', parseResult('temperature', json.config.temperature), mqttOptions)
     }
   }
 }
