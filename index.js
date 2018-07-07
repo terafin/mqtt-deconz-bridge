@@ -77,15 +77,18 @@ const lightNameForID = function(id) {
 }
 
 const idForLightName = function(name) {
+  var foundDeviceID = null
+
   if ( !_.isNil(lastLightState) ) {
     Object.keys(lastLightState).forEach(deviceID => {
-        if ( lastLightState[deviceID].name === name ) {
-          return deviceID
+      if ( !_.isNil(foundDeviceID)) return
+        if ( fix_name(lastLightState[deviceID].name) === fix_name(name) ) {
+          foundDeviceID = deviceID
         }
       })
     }
 
-  return null
+  return foundDeviceID
 }
 
 const queryState = function() {
