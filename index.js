@@ -6,10 +6,31 @@ const bodyParser = require('body-parser')
 const health = require('homeautomation-js-lib/health.js')
 const request = require('request')
 const Configstore = require('configstore');
+const moment = require('moment-timezone')
+
+ function getCurrentTimeZone() {
+  var TIMEZONE = process.env.TIMEZONE
+
+  if (_.isNil(TIMEZONE)) {
+      TIMEZONE = process.env.TZ
+  }
+
+  if (_.isNil(TIMEZONE)) {
+      TIMEZONE = moment.tz.guess()
+  }
+
+  if (_.isNil(TIMEZONE)) {
+      TIMEZONE = 'UTC'
+  }
+
+  return TIMEZONE
+}
 
 const conf = new Configstore("deconz-key", {});
 
 require('homeautomation-js-lib/mqtt_helpers.js')
+
+const TIMEZONE = getCurrentTimeZone()
 
 var deconz_ip = process.env.DECONZ_IP
 var deconz_port = process.env.DECONZ_PORT
@@ -25,8 +46,8 @@ function fix_name(str) {
 }
 
 function apiURL(suffixURL) {
-  if ( _.isNil(suffixURL ) ) return ""
-  if ( _.isNil(deconz_key ) ) return ""
+  if ( _.isNil(suffixURL) ) return ""
+  if ( _.isNil(deconz_key) ) return ""
   
   return 'http://' + deconz_ip + '/api/' + deconz_key + '/' + suffixURL
 }
@@ -160,7 +181,7 @@ if (_.isNil(shouldRetain)) {
 }
 
 if (!_.isNil(shouldRetain)) {
-    mqttOptions['retain'] = shouldRetain
+  mqttOptions['retain'] = shouldRetain
 }
 
 var connectedEvent = function() {
@@ -248,7 +269,7 @@ function handleJSONEvent(json) {
   }
 }
 
-function parseResult(key, value) {
+function parseResult(key, value) {  
   if ( _.isNil(value) )
     return "0"
   if ( value == true )
@@ -365,10 +386,6 @@ function handleUpdateEvent(json) {
       client.smartPublish(topicPrefix + 'effect', parseResult('effect', json.state.effect ), mqttOptions)
     }
 
-    if (!_.isNil(json.state.effect)) {
-      client.smartPublish(topicPrefix + 'effect', parseResult('effect', json.state.effect ), mqttOptions)
-    }
-
     if (!_.isNil(json.state.sat)) {
       client.smartPublish(topicPrefix + 'sat', parseResult('sat', json.state.sat ), mqttOptions)
     }
@@ -397,6 +414,15 @@ function handleUpdateEvent(json) {
     // Contact
     if (!_.isNil(json.state.lastupdated)) {
       client.smartPublish(topicPrefix + 'lastupdated', parseResult('date', json.state.lastupdated), mqttOptions)
+      var now = moment(new Date()).tz(TIMEZONE)
+      var dayAgo = moment(now).subtract(1, 'days')      
+      var lastUpdatedDate = moment(new Date(json.state.lastupdated + 'Z')).tz(TIMEZONE)
+
+      if ( lastUpdatedDate < dayAgo ) {
+        client.smartPublish(topicPrefix + 'reachable', parseResult('reachable', '0'), mqttOptions)
+      } else {
+        client.smartPublish(topicPrefix + 'reachable', parseResult('reachable', '1'), mqttOptions)
+      }
     }
   }
 
@@ -407,9 +433,11 @@ function handleUpdateEvent(json) {
     if (!_.isNil(json.config.battery)) {
       client.smartPublish(topicPrefix + 'battery', parseResult('battery', json.config.battery), mqttOptions)
     }
-    if (!_.isNil(json.config.reachable)) {
-      client.smartPublish(topicPrefix + 'reachable', parseResult('reachable', json.config.reachable), mqttOptions)
-    }
+    
+    // See above, doing this with last updated date
+    // if (!_.isNil(json.config.reachable)) {
+    //   client.smartPublish(topicPrefix + 'reachable', parseResult('reachable', json.config.reachable), mqttOptions)
+    // }
 
     if (!_.isNil(json.config.on)) {
       client.smartPublish(topicPrefix + 'state', parseResult('on', json.config.on ), mqttOptions)
