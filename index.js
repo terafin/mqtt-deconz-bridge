@@ -415,7 +415,7 @@ function handleUpdateEvent(json) {
     if (!_.isNil(json.state.lastupdated)) {
       client.smartPublish(topicPrefix + 'lastupdated', parseResult('date', json.state.lastupdated), mqttOptions)
       var now = moment(new Date()).tz(TIMEZONE)
-      var dayAgo = moment(now).subtract(1, 'days')      
+      var dayAgo = moment(now).subtract(4, 'hours')      
       var lastUpdatedDate = moment(new Date(json.state.lastupdated + 'Z')).tz(TIMEZONE)
 
       if ( lastUpdatedDate < dayAgo ) {
