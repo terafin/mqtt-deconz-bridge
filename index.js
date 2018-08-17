@@ -136,7 +136,7 @@ const queryState = function() {
 				deviceJSON.id = deviceID
 				deviceJSON.r = 'lights'
         
-				handleUpdateEvent(lastLightState[deviceID])
+				handleUpdateEvent(true, lastLightState[deviceID])
 			})
 		}
 	})
@@ -149,7 +149,7 @@ const queryState = function() {
 				deviceJSON.id = deviceID
 				deviceJSON.r = 'sensors'
         
-				handleUpdateEvent(lastSensorState[deviceID])
+				handleUpdateEvent(true, lastSensorState[deviceID])
 			})
 		}
 	})
@@ -273,7 +273,7 @@ const handleJSONEvent = function(json) {
 
 	switch (json.e) {
 	case 'changed':
-		handleUpdateEvent(json)
+		handleUpdateEvent(false, json)
 		break
 	}
 }
@@ -328,7 +328,7 @@ client.on('message', (topic, message) => {
 	}
 })
 
-const climateHandler = function(topicPrefix, state) {
+const climateHandler = function(query, topicPrefix, state) {
 	// Climate
 	if (!_.isNil(state.temperature)) {
 		client.smartPublish(topicPrefix + 'temperature', parseResult('temperature', state.temperature), mqttOptions)
@@ -339,12 +339,12 @@ const climateHandler = function(topicPrefix, state) {
 	if (!_.isNil(state.pressure)) {
 		client.smartPublish(topicPrefix + 'pressure', parseResult('pressure', state.pressure), mqttOptions)
 	}
-	if (!_.isNil(state.buttonevent)) {
-		client.smartPublish(topicPrefix + 'buttonevent', parseResult('buttonevent', state.buttonevent), mqttOptions)
+	if (!_.isNil(state.buttonevent) && !query) {
+		client.smartPublish(topicPrefix + 'buttonevent', parseResult('buttonevent', state.buttonevent))
 	}
 }
 
-const motionHandler = function(topicPrefix, state) {
+const motionHandler = function(query, topicPrefix, state) {
 	// Climate
 	if (!_.isNil(state.lux)) {
 		client.smartPublish(topicPrefix + 'lux', parseResult('lux', state.lux), mqttOptions)
@@ -363,7 +363,7 @@ const motionHandler = function(topicPrefix, state) {
 	}
 }
 
-const lightHandler = function(topicPrefix, state) {
+const lightHandler = function(query, topicPrefix, state) {
 	// Lights/Switches
 	if (!_.isNil(state.bri)) {
 		client.smartPublish(topicPrefix + 'brightness', parseResult('light', state.bri), mqttOptions)
@@ -398,7 +398,7 @@ const lightHandler = function(topicPrefix, state) {
 	}
 }
 
-const handleUpdateEvent = function(json) {
+const handleUpdateEvent = function(query, json) {
 	if (_.isNil(json) ) {
 		logging.error('Empty update event')
 		return
@@ -430,9 +430,9 @@ const handleUpdateEvent = function(json) {
 
 	if ( !_.isNil(json.state)) {
 
-		climateHandler(topicPrefix, json.state)
-		motionHandler(topicPrefix, json.state)  
-		lightHandler(topicPrefix, json.state)
+		climateHandler(query, topicPrefix, json.state)
+		motionHandler(query, topicPrefix, json.state)  
+		lightHandler(query, topicPrefix, json.state)
 
 		// Contact
 		if (!_.isNil(json.state.open)) {
