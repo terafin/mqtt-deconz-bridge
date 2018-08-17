@@ -339,9 +339,6 @@ const climateHandler = function(query, topicPrefix, state) {
 	if (!_.isNil(state.pressure)) {
 		client.smartPublish(topicPrefix + 'pressure', parseResult('pressure', state.pressure), mqttOptions)
 	}
-	if (!_.isNil(state.buttonevent) && !query) {
-		client.smartPublish(topicPrefix + 'buttonevent', parseResult('buttonevent', state.buttonevent))
-	}
 }
 
 const motionHandler = function(query, topicPrefix, state) {
@@ -433,7 +430,11 @@ const handleUpdateEvent = function(query, json) {
 		climateHandler(query, topicPrefix, json.state)
 		motionHandler(query, topicPrefix, json.state)  
 		lightHandler(query, topicPrefix, json.state)
-
+    
+		if (!_.isNil(json.state.buttonevent) && !query) {
+			client.smartPublish(topicPrefix + 'buttonevent', parseResult('buttonevent', json.state.buttonevent))
+		}
+  
 		// Contact
 		if (!_.isNil(json.state.open)) {
 			client.smartPublish(topicPrefix + 'contact', parseResult('contact', json.state.open), mqttOptions)
