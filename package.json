@@ -24,7 +24,8 @@
     "ws": "latest",
     "websocket": "latest",
     "mqtt": "latest",
-    "request": "latest"
+    "request": "latest",
+    "repeat": "latest"
   },
   "engines": {
     "node": ">=4"
