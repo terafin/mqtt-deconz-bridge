@@ -195,7 +195,7 @@ if (!_.isNil(shouldRetain)) {
 }
 
 var connectedEvent = function() {
-	client.subscribe(topic_prefix + '/light/+/+/set')
+	client.subscribe(topic_prefix + '/lights/+/+/set')
 	health.healthyEvent()
 	queryState()
 }
@@ -303,7 +303,7 @@ const parseResult = function(key, value) {
 
 client.on('message', (topic, message) => {
 	logging.info(' ' + topic + ':' + message)
-	if ( topic.toString().includes('light')) {
+	if ( topic.toString().includes('lights')) {
 		const components = topic.split('/')
 		var id = components[components.length - 3]
 		const action = components[components.length - 2]
