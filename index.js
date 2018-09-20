@@ -408,8 +408,9 @@ const handleUpdateEvent = function(query, json) {
 		return
 	}
   
-	if ( deviceType == 'sensors' && json.modelid == 'PHDL00' && json.manufacturername == 'Philips' ) 
-		return
+	if ( deviceType == 'sensors' && json.modelid == 'PHDL00' && json.manufacturername == 'Philips' ) { 
+		return 
+	}
 
 
 	var deviceName = null
