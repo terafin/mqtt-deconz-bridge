@@ -408,6 +408,10 @@ const handleUpdateEvent = function(query, json) {
 		return
 	}
   
+	if ( deviceType == 'sensors' && json.modelid == 'PHDL00' && json.manufacturername == 'Philips' ) 
+		return
+
+
 	var deviceName = null
 
 	switch (deviceType) {
@@ -424,6 +428,8 @@ const handleUpdateEvent = function(query, json) {
 	}
   
 	const topicPrefix = topic_prefix + '/' + deviceType + '/' + deviceName + '/'
+
+	// Filter out the built in 'daylight' sensor
 
 	if ( !_.isNil(json.state)) {
 
