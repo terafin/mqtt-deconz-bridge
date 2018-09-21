@@ -187,7 +187,7 @@ var mqttOptions = {}
 var shouldRetain = process.env.MQTT_RETAIN
 
 if (_.isNil(shouldRetain)) {
-	shouldRetain = true
+	shouldRetain = false
 }
 
 if (!_.isNil(shouldRetain)) {
