@@ -447,6 +447,11 @@ const handleUpdateEvent = function(query, json) {
 			client.smartPublish(topicPrefix + 'contact', parseResult('contact', json.state.open), mqttOptions)
 		}
 
+		// Water
+		if (!_.isNil(json.state.water)) {
+			client.smartPublish(topicPrefix + 'water', parseResult('water', json.state.water), mqttOptions)
+		}
+
 		// Contact
 		if (!_.isNil(json.state.lastupdated)) {
 			client.smartPublish(topicPrefix + 'lastupdated', parseResult('date', json.state.lastupdated), mqttOptions)
