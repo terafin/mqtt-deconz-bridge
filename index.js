@@ -272,9 +272,9 @@ const handleJSONEvent = function(json) {
 	}
 
 	switch (json.e) {
-	case 'changed':
-		handleUpdateEvent(false, json)
-		break
+		case 'changed':
+			handleUpdateEvent(false, json)
+			break
 	}
 }
 
@@ -416,12 +416,12 @@ const handleUpdateEvent = function(query, json) {
 	var deviceName = null
 
 	switch (deviceType) {
-	case 'lights':
-		deviceName = lightNameForID(json.id)
-		break
-	case 'sensors':
-		deviceName = sensorNameForID(json.id)
-		break
+		case 'lights':
+			deviceName = lightNameForID(json.id)
+			break
+		case 'sensors':
+			deviceName = sensorNameForID(json.id)
+			break
 	}
 
 	if ( _.isNil(deviceName) ) {
@@ -439,7 +439,7 @@ const handleUpdateEvent = function(query, json) {
 		lightHandler(query, topicPrefix, json.state)
     
 		if (!_.isNil(json.state.buttonevent) && !query) {
-			client.smartPublish(topicPrefix + 'buttonevent', parseResult('buttonevent', json.state.buttonevent))
+			client.smartPublish(topicPrefix + 'buttonevent', parseResult('buttonevent', json.state.buttonevent), mqttOptions)
 		}
   
 		// Contact
