@@ -138,6 +138,8 @@ const queryState = function() {
         
 				handleUpdateEvent(true, lastLightState[deviceID])
 			})
+		} else {
+			health.unhealthyEvent()
 		}
 	})
 	getURL('sensors', function(err, httpResponse, body){ 
@@ -151,6 +153,8 @@ const queryState = function() {
         
 				handleUpdateEvent(true, lastSensorState[deviceID])
 			})
+		} else {
+			health.unhealthyEvent()
 		}
 	})
 }
@@ -412,7 +416,6 @@ const handleUpdateEvent = function(query, json) {
 		return 
 	}
 
-
 	var deviceName = null
 
 	switch (deviceType) {
@@ -465,6 +468,8 @@ const handleUpdateEvent = function(query, json) {
 				client.smartPublish(topicPrefix + 'reachable', parseResult('reachable', '1'), mqttOptions)
 			}
 		}
+
+		health.healthyEvent()
 	}
 
 	if ( !_.isNil(json.config)) {
@@ -488,5 +493,7 @@ const handleUpdateEvent = function(query, json) {
 		if (!_.isNil(json.config.temperature)) {
 			client.smartPublish(topicPrefix + 'temperature', parseResult('temperature', json.config.temperature), mqttOptions)
 		}
+
+		health.healthyEvent()
 	}
 }
