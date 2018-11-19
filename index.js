@@ -186,7 +186,7 @@ if (_.isNil(topic_prefix)) {
 	process.abort()
 }
 
-var mqttOptions = {}
+var mqttOptions = {qos: 2}
 
 var shouldRetain = process.env.MQTT_RETAIN
 
@@ -199,7 +199,7 @@ if (!_.isNil(shouldRetain)) {
 }
 
 var connectedEvent = function() {
-	client.subscribe(topic_prefix + '/lights/+/+/set')
+	client.subscribe(topic_prefix + '/lights/+/+/set', {qos: 2})
 	health.healthyEvent()
 	queryState()
 }
