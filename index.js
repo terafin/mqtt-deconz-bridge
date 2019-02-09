@@ -436,13 +436,14 @@ const handleUpdateEvent = function(query, json) {
 	// Filter out the built in 'daylight' sensor
 
 	if ( !_.isNil(json.state)) {
-
 		climateHandler(query, topicPrefix, json.state)
 		motionHandler(query, topicPrefix, json.state)  
 		lightHandler(query, topicPrefix, json.state)
     
 		if (!_.isNil(json.state.buttonevent) && !query) {
-			client.smartPublish(topicPrefix + 'buttonevent', parseResult('buttonevent', json.state.buttonevent), mqttOptions)
+			var newOptions = mqttOptions
+			newOptions.retain = false
+			client.publish(topicPrefix + 'buttonevent', parseResult('buttonevent', json.state.buttonevent), newOptions)
 		}
   
 		// Contact
