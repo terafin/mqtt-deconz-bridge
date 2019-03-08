@@ -199,7 +199,7 @@ if (!_.isNil(shouldRetain)) {
 }
 
 var connectedEvent = function() {
-	client.subscribe(topic_prefix + '/lights/+/+/set', {qos: 2})
+	client.subscribe(topic_prefix + '/lights/+/+/set', {qos: 1})
 	health.healthyEvent()
 	queryState()
 }
