@@ -186,7 +186,7 @@ if (_.isNil(topic_prefix)) {
 	process.abort()
 }
 
-var mqttOptions = {qos: 2}
+var mqttOptions = {qos: 1}
 
 var shouldRetain = process.env.MQTT_RETAIN
 
@@ -347,6 +347,10 @@ const climateHandler = function(query, topicPrefix, state) {
 
 const motionHandler = function(query, topicPrefix, state) {
 	// Climate
+	if ( topicPrefix.includes('entry_motion')) {
+		console.log('hello')
+	}
+
 	if (!_.isNil(state.lux)) {
 		client.smartPublish(topicPrefix + 'lux', parseResult('lux', state.lux), mqttOptions)
 	}
@@ -356,7 +360,7 @@ const motionHandler = function(query, topicPrefix, state) {
 	if (!_.isNil(state.daylight)) {
 		client.smartPublish(topicPrefix + 'daylight', parseResult('daylight', state.daylight), mqttOptions)
 	}
-	if (!_.isNil(state.lightlevel)) {
+	if (!_.isNil(state.lightlevel)) { 
 		client.smartPublish(topicPrefix + 'lightlevel', parseResult('lightlevel', state.lightlevel), mqttOptions)
 	}
 	if (!_.isNil(state.presence)) {
