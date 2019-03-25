@@ -27,5 +27,5 @@ deploy:
   stage: deploy
   image: jonaskello/rancher-cli-k8s:v2.0.4
   script:
-    - rancher login http://10.0.1.36 --token token-v77hv:8mngsc4hk5wdwtckmg75b2929rd8qnjf8qrfvbslsnzs8f2w46r28v
+    - rancher login http://10.0.1.36 --skip-verify --token token-v77hv:8mngsc4hk5wdwtckmg75b2929rd8qnjf8qrfvbslsnzs8f2w46r28v
     - rancher kubectl --namespace=automation patch deployment mqtt-deconz.bridge -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"`date +'%s'`\"}}}}}"
