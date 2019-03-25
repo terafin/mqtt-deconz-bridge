@@ -28,4 +28,4 @@ deploy:
   image: terafin/rancher-cli-k8s:latest
   script:
     - rancher login "http://10.0.1.36" --skip-verify --token "token-v77hv:8mngsc4hk5wdwtckmg75b2929rd8qnjf8qrfvbslsnzs8f2w46r28v" --context "c-477bp:p-lj5nj"
-    - rancher kubectl --namespace=automation patch deployment mqtt-deconz.bridge -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"`date +'%s'`\"}}}}}"
+    - rancher kubectl --namespace=default patch deployment mqtt-deconz.bridge -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"`date +'%s'`\"}}}}}"
