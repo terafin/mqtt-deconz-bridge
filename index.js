@@ -204,7 +204,7 @@ var connectedEvent = function() {
 	queryState()
 }
 
-repeat(queryState).every(15, 's').start.in(10, 'sec')
+//repeat(queryState).every(15, 's').start.in(10, 'sec')
 
 var disconnectedEvent = function() {
 	health.unhealthyEvent()
