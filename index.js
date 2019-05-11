@@ -27,7 +27,7 @@ const getCurrentTimeZone = function() {
 
 const conf = new Configstore('deconz-key', {})
 
-require('homeautomation-js-lib/mqtt_helpers.js')
+const helpers = require('homeautomation-js-lib/mqtt_helpers.js')
 
 const TIMEZONE = getCurrentTimeZone()
 
@@ -124,12 +124,12 @@ const queryState = function() {
 		return
 	}
   
-	logging.info('querying state from deconz')
+	logging.debug('querying state from deconz')
 
 	getURL('lights', function(err, httpResponse, body){ 
 		if ( !_.isNil(body) ) {
 			lastLightState = body
-			logging.info('lastLightState: ' + JSON.stringify(lastLightState))
+			logging.debug('lastLightState: ' + JSON.stringify(lastLightState))
 
 			Object.keys(lastLightState).forEach(deviceID => {
 				var deviceJSON = lastLightState[deviceID]
@@ -145,7 +145,7 @@ const queryState = function() {
 	getURL('sensors', function(err, httpResponse, body){ 
 		if ( !_.isNil(body) ) {
 			lastSensorState = body
-			logging.info('lastSensorState: ' + JSON.stringify(lastSensorState))
+			logging.debug('lastSensorState: ' + JSON.stringify(lastSensorState))
 			Object.keys(lastSensorState).forEach(deviceID => {
 				var deviceJSON = lastSensorState[deviceID]
 				deviceJSON.id = deviceID
@@ -237,7 +237,7 @@ rws.addEventListener('message', (message) => {
 		logging.error('Received empty message, bailing')
 		return
 	}
-	logging.info('Received string: ' + message.data)
+	logging.debug('Received string: ' + message.data)
 	const json = JSON.parse(message.data)
 
 	handleJSONEvent(json)
@@ -347,10 +347,6 @@ const climateHandler = function(query, topicPrefix, state) {
 
 const motionHandler = function(query, topicPrefix, state) {
 	// Climate
-	if ( topicPrefix.includes('entry_motion')) {
-		console.log('hello')
-	}
-
 	if (!_.isNil(state.lux)) {
 		client.smartPublish(topicPrefix + 'lux', parseResult('lux', state.lux), mqttOptions)
 	}
@@ -439,6 +435,33 @@ const handleUpdateEvent = function(query, json) {
 
 	// Filter out the built in 'daylight' sensor
 
+	var reachable = true
+
+	// Contact
+	if (!_.isNil(json.state) && !_.isNil(json.state.lastupdated)) {
+		const lastupdated = json.state.lastupdated
+		if ( lastupdated != 'none' ) { 
+			client.smartPublish(topicPrefix + 'lastupdated', parseResult('date', json.state.lastupdated), mqttOptions)
+			var now = moment(new Date()).tz(TIMEZONE)
+			var dayAgo = moment(now).subtract(4, 'hours')      
+			var lastUpdatedDate = moment(new Date(lastupdated + 'Z')).tz(TIMEZONE)
+
+			if ( lastUpdatedDate < dayAgo ) {
+				logging.error('  **** not reachable: ' + deviceName)
+				client.smartPublish(topicPrefix + 'reachable', parseResult('reachable', '0'), mqttOptions)
+				reachable = false
+			} else {
+				client.smartPublish(topicPrefix + 'reachable', parseResult('reachable', '1'), mqttOptions)
+			}
+		}
+
+		health.healthyEvent()
+	}
+
+	if ( !reachable ) {
+		return 
+	}
+
 	if ( !_.isNil(json.state)) {
 		climateHandler(query, topicPrefix, json.state)
 		motionHandler(query, topicPrefix, json.state)  
@@ -460,25 +483,11 @@ const handleUpdateEvent = function(query, json) {
 			client.smartPublish(topicPrefix + 'water', parseResult('water', json.state.water), mqttOptions)
 		}
 
-		// Contact
-		if (!_.isNil(json.state.lastupdated)) {
-			client.smartPublish(topicPrefix + 'lastupdated', parseResult('date', json.state.lastupdated), mqttOptions)
-			var now = moment(new Date()).tz(TIMEZONE)
-			var dayAgo = moment(now).subtract(4, 'hours')      
-			var lastUpdatedDate = moment(new Date(json.state.lastupdated + 'Z')).tz(TIMEZONE)
-
-			if ( lastUpdatedDate < dayAgo ) {
-				client.smartPublish(topicPrefix + 'reachable', parseResult('reachable', '0'), mqttOptions)
-			} else {
-				client.smartPublish(topicPrefix + 'reachable', parseResult('reachable', '1'), mqttOptions)
-			}
-		}
-
 		health.healthyEvent()
 	}
 
 	if ( !_.isNil(json.config)) {
-		logging.info('Config: ' + JSON.stringify(json))
+		// logging.info('Config: ' + JSON.stringify(json))
 
 		// Battery / Reachable
 		if (!_.isNil(json.config.battery)) {
