@@ -211,7 +211,7 @@ var disconnectedEvent = function() {
 }
 
 // Setup MQTT
-const client = mqtt.setupClient(connectedEvent, disconnectedEvent)
+const client = helpers.setupClient(connectedEvent, disconnectedEvent)
 
 var isConnected = false
 var isConnecting = false
