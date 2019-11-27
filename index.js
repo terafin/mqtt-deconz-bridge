@@ -27,7 +27,7 @@ const getCurrentTimeZone = function() {
 
 const conf = new Configstore('deconz-key', {})
 
-const helpers = require('homeautomation-js-lib/mqtt_helpers.js')
+const mqtt_helpers = require('homeautomation-js-lib/mqtt_helpers.js')
 
 const TIMEZONE = getCurrentTimeZone()
 
@@ -191,7 +191,7 @@ var mqttOptions = {qos: 1}
 var shouldRetain = process.env.MQTT_RETAIN
 
 if (_.isNil(shouldRetain)) {
-	shouldRetain = true
+	shouldRetain = false
 }
 
 if (!_.isNil(shouldRetain)) {
@@ -211,7 +211,7 @@ var disconnectedEvent = function() {
 }
 
 // Setup MQTT
-const client = helpers.setupClient(connectedEvent, disconnectedEvent)
+const client = mqtt_helpers.setupClient(connectedEvent, disconnectedEvent)
 
 var isConnected = false
 var isConnecting = false
@@ -368,7 +368,11 @@ const lightHandler = function(query, topicPrefix, state) {
 	// Lights/Switches
 	if (!_.isNil(state.bri)) {
 		client.smartPublish(topicPrefix + 'brightness', parseResult('light', state.bri), mqttOptions)
-		client.smartPublish(topicPrefix + 'state', parseResult('light', state.bri > 0 ? 1 : 0 ), mqttOptions)
+		
+		// This will fall down to state.on if it exists
+		if (_.isNil(state.on)) {
+			client.smartPublish(topicPrefix + 'state', parseResult('light', (state.bri > 0) ? 1 : 0 ), mqttOptions)
+		}
 	}
 	if (!_.isNil(state.on)) {
 		client.smartPublish(topicPrefix + 'state', parseResult('on', state.on ), mqttOptions)
