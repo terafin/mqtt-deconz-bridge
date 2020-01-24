@@ -27,7 +27,7 @@ Here's an example docker compose:
 ```
 version: '3.3'
 services:
-  mqtt-unifi-protect-bridge:
+  mqtt-deconz-bridge:
     image: terafin/mqtt-deconz-bridge:latest
     environment:
       HEALTH_CHECK_PORT: "3001"
