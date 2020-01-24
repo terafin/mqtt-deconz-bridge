@@ -16,10 +16,11 @@ Generally I use 0 as 'off', and 1 as 'on' for these.
 
 For changing states '/set' commands also work, eg:
 
-publish this:
+publish this to set "short_strip" light brightness to 50:
+```
    topic: /deconz/lights/short_strip/brightness/set 
    value: 50
-
+```
 
 Here's an example docker compose:
 
