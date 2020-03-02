@@ -19,7 +19,7 @@
         "homeautomation-js-lib": "https://github.com/terafin/homeautomation-js-lib.git",
         "lodash": "latest",
         "configstore": "latest",
-        "reconnecting-websocket": "latest",
+        "reconnecting-websocket": "4.4.0",
         "moment-timezone": "latest",
         "ws": "latest",
         "websocket": "latest",
