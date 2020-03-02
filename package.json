@@ -1,34 +1,34 @@
 {
-    "name": "mqtt-deconz-bridge",
-    "version": "1.0.0",
-    "description": "",
-    "main": "index.js",
-    "scripts": {
-        "start": "node index.js"
-    },
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/terafin/mqtt-deconz-bridge.git"
-    },
-    "author": "Justin Wood",
-    "license": "MIT",
-    "bugs": {
-        "url": "https://github.com/terafin/mqtt-deconz-bridge/issues"
-    },
-    "dependencies": {
-        "homeautomation-js-lib": "https://github.com/terafin/homeautomation-js-lib.git",
-        "lodash": "latest",
-        "configstore": "latest",
-        "reconnecting-websocket": "4.4.0",
-        "moment-timezone": "latest",
-        "ws": "latest",
-        "websocket": "latest",
-        "mqtt": "latest",
-        "request": "latest",
-        "repeat": "0.0.6"
-    },
-    "engines": {
-        "node": ">=4"
-    },
-    "homepage": "https://github.com/terafin/mqtt-deconz-bridge#readme"
+  "name": "mqtt-deconz-bridge",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/terafin/mqtt-deconz-bridge.git"
+  },
+  "author": "Justin Wood",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/terafin/mqtt-deconz-bridge/issues"
+  },
+  "dependencies": {
+    "homeautomation-js-lib": "https://github.com/terafin/homeautomation-js-lib.git",
+    "lodash": "latest",
+    "configstore": "latest",
+    "reconnecting-websocket": "4.4.0",
+    "moment-timezone": "latest",
+    "ws": "latest",
+    "websocket": "latest",
+    "mqtt": "latest",
+    "request": "latest",
+    "repeat": "0.0.6"
+  },
+  "engines": {
+    "node": ">=4"
+  },
+  "homepage": "https://github.com/terafin/mqtt-deconz-bridge#readme"
 }
