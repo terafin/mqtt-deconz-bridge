@@ -22,7 +22,7 @@
         "reconnecting-websocket": "latest",
         "moment-timezone": "latest",
         "ws": "latest",
-        "websocket": "latest",
+        "websocket": "1.0.31",
         "mqtt": "latest",
         "request": "latest",
         "repeat": "0.0.6"
