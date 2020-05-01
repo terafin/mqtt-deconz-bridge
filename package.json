@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "snyk-protect": "snyk protect",
+    "prepare": "npm run snyk-protect"
   },
   "repository": {
     "type": "git",
@@ -25,10 +27,12 @@
     "websocket": "latest",
     "mqtt": "latest",
     "request": "latest",
-    "repeat": "0.0.6"
+    "repeat": "0.0.6",
+    "snyk": "^1.316.1"
   },
   "engines": {
     "node": ">=4"
   },
-  "homepage": "https://github.com/terafin/mqtt-deconz-bridge#readme"
+  "homepage": "https://github.com/terafin/mqtt-deconz-bridge#readme",
+  "snyk": true
 }
