@@ -25,7 +25,7 @@
         "websocket": "latest",
         "mqtt": "latest",
         "request": "latest",
-        "repeat": "0.0.6"
+        "interval-promise": "latest"
     },
     "engines": {
         "node": ">=4"
