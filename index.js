@@ -3,7 +3,7 @@ const _ = require('lodash')
 const logging = require('homeautomation-js-lib/logging.js')
 const interval = require('interval-promise')
 const health = require('homeautomation-js-lib/health.js')
-const request = require('request')
+const got = require('got')
 const Configstore = require('configstore')
 const moment = require('moment-timezone')
 
@@ -55,24 +55,35 @@ const apiURL = function(suffixURL) {
     return 'http://' + deconz_ip + '/api/' + deconz_key + '/' + suffixURL
 }
 
-const getURL = function(inURL, response) {
+async function getURL(inURL) {
     const url = apiURL(inURL)
 
-    request.get(url, { json: true }, response)
+    var result = null
+    try {
+        const response = await got.get(url)
+        result = JSON.parse(response.body)
+    } catch (error) {
+        logging.error('failed to get url: ' + url + '   error: ' + error)
+    }
+
+
+    return result
 }
 
-const putURL = function(inURL, bodyJSON, response) {
+async function putURL(inURL, bodyJSON) {
     const url = apiURL(inURL)
 
-    request.put(url, { body: bodyJSON, json: true }, response)
-}
+    var result = null
+    try {
+        const response = await got.put(url, { json: bodyJSON })
+        result = JSON.parse(response.body)
+        logging.info('result: ' + JSON.stringify(result))
+    } catch (error) {
+        logging.error('failed to put url: ' + url + '   error: ' + error)
+    }
 
-const simpleResponseLog = function(err, httpResponse, body) {
-    logging.info('reponse error: ' + err)
-    logging.info('httpResponse error: ' + JSON.stringify(httpResponse))
-    logging.info('reponse body: ' + JSON.stringify(body))
+    return result
 }
-
 
 var lastLightState = null
 var lastSensorState = null
@@ -119,62 +130,71 @@ const idForLightName = function(name) {
     return foundDeviceID
 }
 
-const queryState = function() {
+async function queryState() {
     if (_.isNil(deconz_key)) {
         return
     }
 
     logging.debug('querying state from deconz')
 
-    getURL('lights', function(err, httpResponse, body) {
-        if (!_.isNil(body)) {
-            lastLightState = body
-            logging.debug('lastLightState: ' + JSON.stringify(lastLightState))
+    try {
+        logging.debug('starting light query')
+        lastLightState = await getURL('lights')
+        logging.debug('lastLightState: ' + JSON.stringify(lastLightState))
 
-            Object.keys(lastLightState).forEach(deviceID => {
-                var deviceJSON = lastLightState[deviceID]
-                deviceJSON.id = deviceID
-                deviceJSON.r = 'lights'
+        Object.keys(lastLightState).forEach(deviceID => {
+            var deviceJSON = lastLightState[deviceID]
+            deviceJSON.id = deviceID
+            deviceJSON.r = 'lights'
 
-                handleUpdateEvent(true, lastLightState[deviceID])
-            })
+            handleUpdateEvent(true, lastLightState[deviceID])
+        })
+    } catch (error) {
+        health.unhealthyEvent()
+        logging.error('failed light state update: ' + error)
+    }
+
+    try {
+        lastSensorState = await getURL('sensors')
+        logging.debug('lastSensorState: ' + JSON.stringify(lastSensorState))
+        Object.keys(lastSensorState).forEach(deviceID => {
+            var deviceJSON = lastSensorState[deviceID]
+            deviceJSON.id = deviceID
+            deviceJSON.r = 'sensors'
+
+            handleUpdateEvent(true, lastSensorState[deviceID])
+        })
+    } catch (error) {
+        health.unhealthyEvent()
+        logging.error('failed sensor state update: ' + error)
+    }
+
+}
+
+async function getAPIKey() {
+    try {
+        const keyURL = 'http://' + deconz_ip + '/api'
+        logging.info('Querying API Key URL: ' + keyURL)
+        const response = await got.post(keyURL, { json: { devicetype: 'mqtt-bridge' } })
+        const body = JSON.parse(response.body)
+        const bodyPart = body[0]
+        if (!_.isNil(bodyPart) && !_.isNil(bodyPart.success) && !_.isNil(bodyPart.success.username)) {
+            const api_key = bodyPart.success.username
+            conf.set('api-key', api_key)
+            deconz_key = api_key
+            logging.info('Saved API Key: ' + api_key)
         } else {
-            health.unhealthyEvent()
+            logging.error('could not get API key: ' + JSON.stringify(body))
         }
-    })
-    getURL('sensors', function(err, httpResponse, body) {
-        if (!_.isNil(body)) {
-            lastSensorState = body
-            logging.debug('lastSensorState: ' + JSON.stringify(lastSensorState))
-            Object.keys(lastSensorState).forEach(deviceID => {
-                var deviceJSON = lastSensorState[deviceID]
-                deviceJSON.id = deviceID
-                deviceJSON.r = 'sensors'
 
-                handleUpdateEvent(true, lastSensorState[deviceID])
-            })
-        } else {
-            health.unhealthyEvent()
-        }
-    })
+    } catch (error) {
+        logging.error('failed getting API key: ' + error + '    is the bridge in pairing mode?')
+    }
 }
 
 if (_.isNil(deconz_key)) {
     logging.info('No saved API Key - Loading API Key')
-    request.post('http://' + deconz_ip + '/api', { body: { devicetype: 'mqtt-bridge' }, json: true },
-        function(err, httpResponse, body) {
-            logging.info('reponse body: ' + JSON.stringify(body))
-            const bodyPart = body[0]
-            if (!_.isNil(bodyPart) && !_.isNil(bodyPart.success) && !_.isNil(bodyPart.success.username)) {
-                const api_key = bodyPart.success.username
-                conf.set('api-key', api_key)
-                deconz_key = api_key
-                logging.info('Saved API Key: ' + api_key)
-            } else {
-                logging.error('could not get API key: ' + JSON.stringify(body))
-            }
-        }
-    )
+    getAPIKey()
 }
 
 logging.info('Using API Key: ' + deconz_key)
@@ -285,32 +305,49 @@ const handleJSONEvent = function(json) {
             break
     }
 }
-
-const parseResult = function(key, value) {
-    if (_.isNil(value)) {
-        return '0'
+const cleanupCollection = function(collection) {
+    if (_.isNil(collection)) {
+        return {}
     }
-    if (value == true) {
-        return '1'
-    }
-    if (value == false) {
-        return '0'
-    }
+    var fixed = {}
+
+    Object.keys(collection).forEach(key => {
+        var value = collection[key]
+
+        switch (value) {
+            case 'true':
+            case true:
+                value = 1
+                break
+
+            case 'false':
+            case false:
+                value = 0
+                break
+
+            default:
+                break
+        }
+
+        switch (key) {
+            case 'temperature':
+            case 'humidity':
+                value = (value / 100.0).toFixed(2)
+                break
+
+            default:
+                break
+        }
 
 
-    if (key == 'temperature') {
-        return (value / 100.0).toFixed(2).toString()
-    }
+        fixed[key] = value.toString()
+    })
 
-    if (key == 'humidity') {
-        return (value / 100.0).toFixed(2).toString()
-    }
-
-    return value.toString()
+    return fixed
 }
 
-client.on('message', (topic, message) => {
-    logging.info(' ' + topic + ':' + message)
+
+async function processIncomingMessage(topic, message) {
     if (topic.toString().includes('lights')) {
         const components = topic.split('/')
         var id = components[components.length - 3]
@@ -328,84 +365,22 @@ client.on('message', (topic, message) => {
         }
         if (action.includes('brightness')) {
             const brightness = Number(message)
-            putURL('lights/' + id + '/state', { bri: brightness, on: (brightness > 0 ? true : false) }, simpleResponseLog)
+            const response = await putURL('lights/' + id + '/state', { bri: brightness, on: (brightness > 0 ? true : false) })
+            logging.info('brightness update response: ' + response)
         } else if (action.includes('state')) {
             const brightness = Number(message)
-            putURL('lights/' + id + '/state', { on: brightness > 0 ? true : false }, simpleResponseLog)
+            const response = await putURL('lights/' + id + '/state', { on: brightness > 0 ? true : false })
+            logging.info('state update response: ' + response)
         }
     }
+
+}
+
+client.on('message', (topic, message) => {
+    logging.info(' ' + topic + ':' + message)
+    processIncomingMessage(topic, message)
 })
 
-const climateHandler = function(query, topicPrefix, state) {
-    // Climate
-    if (!_.isNil(state.temperature)) {
-        client.smartPublish(topicPrefix + 'temperature', parseResult('temperature', state.temperature), mqttOptions)
-    }
-    if (!_.isNil(state.humidity)) {
-        client.smartPublish(topicPrefix + 'humidity', parseResult('humidity', state.humidity), mqttOptions)
-    }
-    if (!_.isNil(state.pressure)) {
-        client.smartPublish(topicPrefix + 'pressure', parseResult('pressure', state.pressure), mqttOptions)
-    }
-}
-
-const motionHandler = function(query, topicPrefix, state) {
-    // Climate
-    if (!_.isNil(state.lux)) {
-        client.smartPublish(topicPrefix + 'lux', parseResult('lux', state.lux), mqttOptions)
-    }
-    if (!_.isNil(state.dark)) {
-        client.smartPublish(topicPrefix + 'dark', parseResult('dark', state.dark), mqttOptions)
-    }
-    if (!_.isNil(state.daylight)) {
-        client.smartPublish(topicPrefix + 'daylight', parseResult('daylight', state.daylight), mqttOptions)
-    }
-    if (!_.isNil(state.lightlevel)) {
-        client.smartPublish(topicPrefix + 'lightlevel', parseResult('lightlevel', state.lightlevel), mqttOptions)
-    }
-    if (!_.isNil(state.presence)) {
-        client.smartPublish(topicPrefix + 'presence', parseResult('presence', state.presence), mqttOptions)
-    }
-}
-
-const lightHandler = function(query, topicPrefix, state) {
-    // Lights/Switches
-    if (!_.isNil(state.bri)) {
-        client.smartPublish(topicPrefix + 'brightness', parseResult('light', state.bri), mqttOptions)
-
-        // This will fall down to state.on if it exists
-        if (_.isNil(state.on)) {
-            client.smartPublish(topicPrefix + 'state', parseResult('light', (state.bri > 0) ? 1 : 0), mqttOptions)
-        }
-    }
-    if (!_.isNil(state.on)) {
-        client.smartPublish(topicPrefix + 'state', parseResult('on', state.on), mqttOptions)
-    }
-
-    if (!_.isNil(state.effect)) {
-        client.smartPublish(topicPrefix + 'effect', parseResult('effect', state.effect), mqttOptions)
-    }
-
-    if (!_.isNil(state.sat)) {
-        client.smartPublish(topicPrefix + 'sat', parseResult('sat', state.sat), mqttOptions)
-    }
-
-    if (!_.isNil(state.xy)) {
-        client.smartPublish(topicPrefix + 'xy', parseResult('xy', state.xy), mqttOptions)
-    }
-
-    if (!_.isNil(state.hue)) {
-        client.smartPublish(topicPrefix + 'hue', parseResult('hue', state.hue), mqttOptions)
-    }
-
-    if (!_.isNil(state.alert)) {
-        client.smartPublish(topicPrefix + 'alert', parseResult('alert', state.alert), mqttOptions)
-    }
-
-    if (!_.isNil(state.ct)) {
-        client.smartPublish(topicPrefix + 'ct', parseResult('ct', state.ct), mqttOptions)
-    }
-}
 
 const handleUpdateEvent = function(query, json) {
     if (_.isNil(json)) {
@@ -439,27 +414,29 @@ const handleUpdateEvent = function(query, json) {
         deviceName = json.id
     }
 
-    const topicPrefix = topic_prefix + '/' + deviceType + '/' + deviceName + '/'
-
-    // Filter out the built in 'daylight' sensor
+    const topicPrefix = mqtt_helpers.generateTopic(topic_prefix, deviceType, deviceName)
 
     var reachable = true
+    var state = null
 
-    // Contact
-    if (!_.isNil(json.state) && !_.isNil(json.state.lastupdated)) {
-        const lastupdated = json.state.lastupdated
+    if (!_.isNil(json.state)) {
+        state = cleanupCollection(json.state)
+    }
+
+    if (!_.isNil(state) && !_.isNil(state.lastupdated)) {
+        const lastupdated = state.lastupdated
         if (lastupdated != 'none') {
-            client.smartPublish(topicPrefix + 'lastupdated', parseResult('date', json.state.lastupdated), mqttOptions)
+            client.smartPublish(mqtt_helpers.generateTopic(topicPrefix, 'lastupdated'), lastupdated, mqttOptions)
             var now = moment(new Date()).tz(TIMEZONE)
             var dayAgo = moment(now).subtract(4, 'hours')
             var lastUpdatedDate = moment(new Date(lastupdated + 'Z')).tz(TIMEZONE)
 
             if (lastUpdatedDate < dayAgo) {
                 logging.error('  **** not reachable: ' + deviceName)
-                client.smartPublish(topicPrefix + 'reachable', parseResult('reachable', '0'), mqttOptions)
+                client.smartPublish(mqtt_helpers.generateTopic(topicPrefix, 'reachable'), '0', mqttOptions)
                 reachable = false
             } else {
-                client.smartPublish(topicPrefix + 'reachable', parseResult('reachable', '1'), mqttOptions)
+                client.smartPublish(mqtt_helpers.generateTopic(topicPrefix, 'reachable'), '1', mqttOptions)
             }
         }
 
@@ -470,51 +447,39 @@ const handleUpdateEvent = function(query, json) {
         return
     }
 
-    if (!_.isNil(json.state)) {
-        climateHandler(query, topicPrefix, json.state)
-        motionHandler(query, topicPrefix, json.state)
-        lightHandler(query, topicPrefix, json.state)
-
-        if (!_.isNil(json.state.buttonevent) && !query) {
+    if (!_.isNil(state)) {
+        if (!_.isNil(state.buttonevent) && !query) {
             var newOptions = mqttOptions
             newOptions.retain = false
-            client.publish(topicPrefix + 'buttonevent', parseResult('buttonevent', json.state.buttonevent), newOptions)
+            client.publish(mqtt_helpers.generateTopic(topicPrefix, 'buttonevent'), state.buttonevent, newOptions)
         }
 
         // Contact
-        if (!_.isNil(json.state.open)) {
-            client.smartPublish(topicPrefix + 'contact', parseResult('contact', json.state.open), mqttOptions)
+        if (!_.isNil(state.open)) {
+            client.smartPublish(mqtt_helpers.generateTopic(topicPrefix, 'contact'), state.open, mqttOptions)
         }
 
-        // Water
-        if (!_.isNil(json.state.water)) {
-            client.smartPublish(topicPrefix + 'water', parseResult('water', json.state.water), mqttOptions)
+        // Lights/Switches
+        if (!_.isNil(state.bri)) {
+            client.smartPublish(mqtt_helpers.generateTopic(topicPrefix, 'brightness'), state.bri, mqttOptions)
+
+            // This will fall down to state.on if it exists
+            if (_.isNil(state.on)) {
+                client.smartPublish(mqtt_helpers.generateTopic(topicPrefix, 'state'), ((state.bri > 0) ? 1 : 0), mqttOptions)
+            }
         }
+
+        if (!_.isNil(state.on)) {
+            client.smartPublish(mqtt_helpers.generateTopic(topicPrefix, 'state'), state.on, mqttOptions)
+        }
+
+        client.smartPublishCollection(topicPrefix, state, ['buttonevent', 'open', 'on', 'bri'], mqttOptions)
 
         health.healthyEvent()
     }
 
     if (!_.isNil(json.config)) {
-        // logging.info('Config: ' + JSON.stringify(json))
-
-        // Battery / Reachable
-        if (!_.isNil(json.config.battery)) {
-            client.smartPublish(topicPrefix + 'battery', parseResult('battery', json.config.battery), mqttOptions)
-        }
-
-        // See above, doing this with last updated date
-        // if (!_.isNil(json.config.reachable)) {
-        //   client.smartPublish(topicPrefix + 'reachable', parseResult('reachable', json.config.reachable), mqttOptions)
-        // }
-
-        if (!_.isNil(json.config.on)) {
-            client.smartPublish(topicPrefix + 'state', parseResult('on', json.config.on), mqttOptions)
-        }
-
-        // Climate
-        if (!_.isNil(json.config.temperature)) {
-            client.smartPublish(topicPrefix + 'temperature', parseResult('temperature', json.config.temperature), mqttOptions)
-        }
+        client.smartPublishCollection(topicPrefix, cleanupCollection(json.config), ['reachable', 'on'], mqttOptions)
 
         health.healthyEvent()
     }

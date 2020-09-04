@@ -22,9 +22,8 @@
         "reconnecting-websocket": "4.4.0",
         "moment-timezone": "latest",
         "ws": "latest",
-        "websocket": "latest",
         "mqtt": "latest",
-        "request": "latest",
+        "got": "latest",
         "interval-promise": "latest"
     },
     "engines": {
