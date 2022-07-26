@@ -340,7 +340,9 @@ const cleanupCollection = function(collection) {
         }
 
 
-        fixed[key] = value.toString()
+        if (value !== null) {
+                fixed[key] = value.toString()
+        }
     })
 
     return fixed
