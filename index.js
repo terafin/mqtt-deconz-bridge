@@ -449,7 +449,7 @@ const handleUpdateEvent = function(query, json) {
 
     if (!_.isNil(state)) {
         if (!_.isNil(state.buttonevent) && !query) {
-            var newOptions = mqttOptions
+            var newOptions = {... mqttOptions}
             newOptions.retain = false
             client.publish(mqtt_helpers.generateTopic(topicPrefix, 'buttonevent'), state.buttonevent, newOptions)
         }
