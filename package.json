@@ -23,7 +23,7 @@
         "moment-timezone": "latest",
         "ws": "latest",
         "mqtt": "latest",
-        "got": "^11.0.0",
+        "got": "^12.5.1",
         "interval-promise": "latest"
     },
     "engines": {
